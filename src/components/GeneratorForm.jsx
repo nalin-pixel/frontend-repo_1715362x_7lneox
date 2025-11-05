@@ -1,185 +1,218 @@
-import { useState } from "react";
-import { Upload, Wand2, User, PackageSearch, Loader2 } from "lucide-react";
+import { useState, useRef } from 'react';
+import { Upload, Image as ImageIcon, PlayCircle, AlertCircle } from 'lucide-react';
 
 export default function GeneratorForm({ onGenerate }) {
-  const [productName, setProductName] = useState("");
-  const [description, setDescription] = useState("");
-  const [style, setStyle] = useState("Minimal studio");
-  const [mode, setMode] = useState("product"); // 'product' | 'model'
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [productName, setProductName] = useState('');
+  const [description, setDescription] = useState('');
+  const [style, setStyle] = useState('Studio minimalis');
+  const [mode, setMode] = useState('product');
+  const [useReference, setUseReference] = useState(true);
+  const [refPreview, setRefPreview] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const fileRef = useRef(null);
 
   const handleFile = (file) => {
     if (!file) return;
-    setImageFile(file);
+    if (!file.type.startsWith('image/')) {
+      setError('Silakan unggah file gambar yang valid.');
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = (e) => setImagePreview(e.target?.result?.toString() || null);
+    reader.onload = () => {
+      setRefPreview(reader.result?.toString() || '');
+      setError('');
+    };
     reader.readAsDataURL(file);
   };
 
-  const simulateGenerate = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (useReference && !refPreview) {
+      setError('Untuk hasil konsisten, unggah gambar referensi produk Anda.');
+      return;
+    }
+
+    if (!productName.trim()) {
+      setError('Nama produk tidak boleh kosong.');
+      return;
+    }
+
     setLoading(true);
-    // Simulate latency
-    await new Promise((r) => setTimeout(r, 1400));
-    // Create 4 mock image URLs (placeholder). In a real app, replace with backend call.
-    const base = mode === "model" ? "https://images.unsplash.com/photo-1554151228-14d9def656e4" : "https://images.unsplash.com/photo-1523275335684-37898b6baf30";
-    const variants = [
-      `${base}?auto=format&fit=crop&w=900&q=80` ,
-      `${base}?auto=format&fit=crop&w=900&q=70` ,
-      `${base}?auto=format&fit=crop&w=900&q=60` ,
-      `${base}?auto=format&fit=crop&w=900&q=50` ,
-    ];
+
+    const prompt = `${description || 'Foto produk profesional'} | Gaya: ${style} | Mode: ${mode === 'product' ? 'Produk saja' : 'Dengan model'} | Konsisten dengan referensi`;
+
+    // Simulasi proses generate dengan konsistensi dari referensi
+    await new Promise((r) => setTimeout(r, 1200));
+
+    const makePlaceholder = (idx) =>
+      `https://images.unsplash.com/photo-15${idx}0?auto=format&fit=crop&w=1200&q=60`;
+
+    const images = useReference && refPreview
+      ? [refPreview, refPreview, refPreview, refPreview]
+      : [1, 2, 3, 4].map((i) => makePlaceholder(i));
+
     onGenerate({
       productName,
       description,
       style,
       mode,
-      imagePreview,
-      results: variants,
+      useReference,
+      refImageUrl: refPreview || null,
+      images,
+      prompt,
     });
+
     setLoading(false);
   };
 
-  const onSubmit = (e) => {
-    e.preventDefault();
-    simulateGenerate();
-  };
-
   return (
-    <section className="mx-auto w-full max-w-6xl px-6">
-      <div className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/60">
-        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-6 md:grid-cols-12">
-          <div className="md:col-span-7 space-y-4">
+    <section className="mx-auto max-w-6xl px-4 py-8">
+      <div className="grid lg:grid-cols-2 gap-8">
+        <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur rounded-2xl border border-gray-200 p-6 shadow-sm">
+          <div className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Nama Produk
-              </label>
-              <div className="relative">
-                <input
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  placeholder="Contoh: Sneakers putih minimalis"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-800 outline-none ring-indigo-200 transition focus:border-indigo-500 focus:ring dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                  required
-                />
-                <PackageSearch className="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
-              </div>
+              <label className="block text-sm font-medium text-gray-700">Nama produk</label>
+              <input
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="Contoh: Botol minum stainless"
+                className="mt-1 w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+              />
             </div>
+
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Deskripsi / Prompt
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Deskripsi & detail</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Deskripsikan gaya, suasana, warna, latar, dsb."
+                placeholder="Warna, material, mood pencahayaan, properti, dsb."
                 rows={3}
-                className="w-full resize-none rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-800 outline-none ring-indigo-200 transition focus:border-indigo-500 focus:ring dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                className="mt-1 w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
               />
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Gaya Latar
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Gaya</label>
                 <select
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-800 outline-none ring-indigo-200 transition focus:border-indigo-500 focus:ring dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className="mt-1 w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                 >
-                  <option>Minimal studio</option>
-                  <option>Outdoor natural</option>
-                  <option>Bold colorful</option>
-                  <option>Luxurious</option>
-                  <option>Monochrome</option>
+                  <option>Studio minimalis</option>
+                  <option>Flatlay editorial</option>
+                  <option>Lifestyle hangat</option>
+                  <option>High-contrast dramatis</option>
                 </select>
               </div>
+
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Mode Output
-                </label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-sm font-medium text-gray-700">Mode</label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setMode("product")}
-                    className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
-                      mode === "product"
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200"
-                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    }`}
+                    onClick={() => setMode('product')}
+                    className={`rounded-xl border px-3 py-2 text-sm ${mode === 'product' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-300 hover:bg-gray-50'}`}
                   >
-                    <PackageSearch className="h-4 w-4" /> Produk saja
+                    Produk saja
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMode("model")}
-                    className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
-                      mode === "model"
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200"
-                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    }`}
+                    onClick={() => setMode('model')}
+                    className={`rounded-xl border px-3 py-2 text-sm ${mode === 'model' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-300 hover:bg-gray-50'}`}
                   >
-                    <User className="h-4 w-4" /> Dengan model
+                    Dengan model
                   </button>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="md:col-span-5">
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Gambar Produk (opsional)
-            </label>
-            <div className="flex h-full items-center justify-center">
-              <div className="w-full">
-                <div className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-white/60 ring-indigo-200 transition hover:border-indigo-400 hover:bg-indigo-50/40 focus-within:border-indigo-500 focus-within:ring dark:border-gray-700 dark:bg-gray-800/60">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400">
-                      <Upload className="mb-2 h-6 w-6" />
-                      <p className="text-sm font-medium">Upload foto produk</p>
-                      <p className="text-xs">PNG, JPG hingga 10MB</p>
-                    </div>
-                  )}
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-indigo-600" />
+                  <p className="text-sm font-medium">Gunakan gambar referensi</p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFile(e.target.files?.[0])}
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    type="checkbox"
+                    checked={useReference}
+                    onChange={(e) => setUseReference(e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                </div>
-                <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  Gunakan gambar referensi produk untuk hasil yang lebih akurat.
-                </p>
+                  Aktif
+                </label>
               </div>
-            </div>
-          </div>
 
-          <div className="md:col-span-12 flex items-center justify-between">
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              Hasil menggunakan AI generatif. Hindari materi berhak cipta.
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Menghasilkan...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-5 w-5" />
-                  Generate Foto
-                </>
+              {useReference && (
+                <div className="mt-3 grid sm:grid-cols-[1fr,auto] gap-3 items-center">
+                  <div className="relative overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
+                    {refPreview ? (
+                      <img src={refPreview} alt="Referensi" className="w-full h-52 object-contain p-3" />
+                    ) : (
+                      <div className="h-52 grid place-items-center text-gray-500">
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="h-5 w-5" />
+                          <p className="text-sm">Seret & taruh gambar di sini atau klik unggah</p>
+                        </div>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileRef}
+                      onChange={(e) => handleFile(e.target.files?.[0])}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="h-11 inline-flex items-center gap-2 rounded-xl bg-white border border-gray-300 px-4 text-sm font-medium hover:bg-gray-50"
+                  >
+                    <Upload className="h-4 w-4" /> Unggah
+                  </button>
+                </div>
               )}
-            </button>
+
+              <p className="mt-2 text-xs text-gray-500">
+                Tip: Hasil paling konsisten jika referensi ber-background polos dan produk jelas terlihat.
+              </p>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-amber-800">
+                <AlertCircle className="h-4 w-4 mt-0.5" />
+                <p className="text-sm">{error}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-white font-medium shadow hover:bg-indigo-700 disabled:opacity-60"
+              >
+                <PlayCircle className="h-5 w-5" />
+                {loading ? 'Menghasilkan…' : 'Generate Foto'}
+              </button>
+              <p className="text-xs text-gray-500">Tidak ada biaya: ini simulasi untuk meninjau alur dan desain.</p>
+            </div>
           </div>
         </form>
+
+        <div className="bg-gradient-to-br from-indigo-50 to-pink-50 rounded-2xl border border-gray-200 p-6">
+          <h3 className="text-sm font-semibold text-gray-800">Tips mendapatkan hasil konsisten</h3>
+          <ul className="mt-3 space-y-2 text-sm text-gray-600 list-disc pl-5">
+            <li>Selalu aktifkan opsi referensi dan unggah foto produk Anda.</li>
+            <li>Gunakan referensi dengan pencahayaan merata dan latar polos.</li>
+            <li>Isi detail gaya dan mood agar hasil sesuai branding.</li>
+            <li>Untuk mode dengan model, tambahkan deskripsi target demografis.</li>
+          </ul>
+        </div>
       </div>
     </section>
   );
